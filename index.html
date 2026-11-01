@@ -241,7 +241,7 @@ function updateStats(){
     const s = (rec && rec.status) || "待售";
     counts[s] = (counts[s]||0)+1;
     const amount = (rec && rec.price) ? Number(rec.price) : price;
-    effectiveTotal += amount;
+    if(s === "待售"){ effectiveTotal += price; }
     if(s !== "待售"){ dealCount++; dealAmount += amount; contractBaseSum += price; }
     if(rec && rec.price){ diffSum += Number(rec.price)-price; diffUnits++; }
   }));
@@ -260,7 +260,7 @@ function updateStats(){
     </div>
     <div class="stat-row">
       <div class="stat"><b>${fmtWanPlain(basePriceTotal)}</b>可售底價總銷</div>
-      <div class="stat"><b>${fmtWanPlain(effectiveTotal)}</b>未售部分目前總額<span class="stat-note">含已填成交價</span></div>
+      <div class="stat"><b>${fmtWanPlain(effectiveTotal)}</b>待售部分底價剩額<span class="stat-note">已下訂/已簽約不再算入</span></div>
       <div class="stat"><b>${diffUnits? (diffSum>0?'+':'')+fmtWan(diffSum) : '—'}</b>累計超底/破底<span class="stat-note">${diffUnits}戶有填成交價</span></div>
     </div>
     <div class="stat-row">
