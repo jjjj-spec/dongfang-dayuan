@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>東方大苑 戶數去化表</title>
+<style>
+:root{
+  --bg:#f6f4f0; --surface:#ffffff; --ink:#23241f; --sub:#73706a; --line:#ddd8cf;
+  --sold-old:#c9c4ba; --sold-old-ink:#716c62;
+  --avail:#ffffff; --avail-line:#b9c9b0;
+  --hold:#f2b84b; --signed:#c0392b;
+  --head-bg:#efece5; --head-ink:#5c584f;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --head-bg:#2d2b26; --head-ink:#c7c3b8; }
+}
+:root[data-theme="dark"]{ --head-bg:#2d2b26; --head-ink:#c7c3b8; }
+*{box-sizing:border-box;}
+html,body{height:100%;}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+header{
+  padding:20px 20px 12px; border-bottom:1px solid var(--line); background:var(--surface);
+  position:sticky; top:0; z-index:5;
+}
+header::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--surface);z-index:10;}
+h1{margin:0 0 4px; font-size:20px; font-weight:700; letter-spacing:.02em;}
+.sub{color:var(--sub); font-size:13px; margin-bottom:12px;}
+.stats{display:flex; flex-direction:column; gap:10px; font-size:13px;}
+.stat-row{display:flex; gap:10px; flex-wrap:wrap; align-items:stretch;}
+.stat-row-label{font-size:11px; color:var(--sub); width:100%; margin-bottom:-2px;}
+.stat{background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:6px 12px; flex:1 1 128px; min-width:128px;}
+.pair{display:flex; gap:10px; flex:2 1 266px; min-width:266px;}
+.pair .stat{flex:1 1 0; min-width:0;}
+.stat b{font-size:15px; display:block;}
+.stat-note{display:block; font-size:10.5px; color:var(--sub); margin-top:1px;}
+.stat.wide{flex-basis:100%; background:var(--surface); border-color:var(--ink);}
+.stat.wide b{font-size:18px;}
+.legend{display:flex; gap:14px; flex-wrap:wrap; margin-top:12px; font-size:12px; color:var(--sub);}
+.legend span{display:inline-flex; align-items:center; gap:5px;}
+.swatch{width:12px; height:12px; border-radius:3px; border:1px solid var(--line); display:inline-block;}
+main{padding:16px; max-width:1200px; margin:0 auto;}
+.wrap{overflow-x:auto; background:var(--surface); border:1px solid var(--line); border-radius:10px;}
+table{border-collapse:collapse; width:100%; min-width:760px;}
+th,td{border:1px solid var(--line); text-align:center; padding:0;}
+th{background:var(--head-bg); font-size:12px; padding:8px 4px; color:var(--head-ink); font-weight:600;}
+th.floor-col{width:44px;}
+.th-area{font-weight:400; font-size:10px; opacity:.75; margin-top:1px;}
+.floor-label{font-weight:700; background:var(--head-bg); color:var(--head-ink); font-size:13px; padding:4px; width:44px;}
+.sep{width:10px; border:none; background:var(--bg);}
+td.cell{height:74px; width:84px; cursor:pointer; vertical-align:middle; position:relative; transition:filter .15s;}
+td.cell:hover{filter:brightness(0.97);}
+td.na{background:var(--bg); cursor:default; color:var(--line);}
+td.sold-old{background:var(--sold-old); color:var(--sold-old-ink); cursor:default;}
+td.待售{background:var(--avail);}
+td.已下訂{background:var(--hold); color:#4a3100;}
+td.已簽約{background:var(--signed); color:#fff;}
+.unit{font-size:12px; font-weight:700;}
+.price{font-size:10.5px; opacity:.85;}
+.price.deal{font-weight:700; opacity:1;}
+.sub2{font-size:9.5px; opacity:.75;}
+.name{font-size:10px; margin-top:1px;}
+
+.modal-bg{position:fixed; inset:0; background:rgba(30,28,24,.45); display:none; align-items:center; justify-content:center; z-index:50; padding:16px;}
+.modal-bg.open{display:flex;}
+.modal{background:var(--surface); border-radius:12px; padding:20px; width:100%; max-width:360px; max-height:90vh; overflow:auto;}
+.modal h2{margin:0 0 2px; font-size:17px;}
+.modal .meta{color:var(--sub); font-size:12.5px; margin-bottom:14px;}
+.modal label{display:block; font-size:12px; color:var(--sub); margin:10px 0 4px;}
+.modal input,.modal textarea{width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:7px; font-size:14px; font-family:inherit; background:var(--bg); color:var(--ink);}
+.modal textarea{resize:vertical; min-height:50px;}
+.status-row{display:flex; gap:6px; margin-top:4px;}
+.status-btn{flex:1; padding:8px 0; border-radius:7px; border:1px solid var(--line); background:var(--bg); color:var(--ink); font-size:13px; cursor:pointer;}
+.status-btn.active{border-color:transparent; font-weight:700;}
+.status-btn[data-s="待售"].active{background:var(--avail); outline:2px solid var(--avail-line);}
+.status-btn[data-s="已下訂"].active{background:var(--hold); color:#4a3100;}
+.status-btn[data-s="已簽約"].active{background:var(--signed); color:#fff;}
+.diffHint{font-size:12px; margin-top:5px; min-height:14px;}
+.diffHint.up{color:#1a7a3c;}
+.diffHint.down{color:#c0392b;}
+.diff-badge{position:absolute; top:3px; right:4px; font-size:9px; font-weight:700; padding:1px 4px; border-radius:4px;}
+.diff-badge.up{background:#1a7a3c; color:#fff;}
+.diff-badge.down{background:#c0392b; color:#fff;}
+.modal-actions{display:flex; gap:8px; margin-top:18px;}
+.btn{flex:1; padding:10px; border-radius:7px; border:1px solid var(--line); background:var(--bg); color:var(--ink); font-size:14px; cursor:pointer;}
+.btn.primary{background:#3b3a35; color:#fff; border-color:#3b3a35;}
+.btn.close{background:transparent; border:none; color:var(--sub); font-size:13px; margin-top:8px; width:100%; cursor:pointer;}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#1b1a17; --surface:#242320; --ink:#ece9e2; --sub:#9b968c; --line:#3a3833;
+    --sold-old:#39372f; --sold-old-ink:#9b968c; --avail:#2a2924; --avail-line:#4e6a3f;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#1b1a17; --surface:#242320; --ink:#ece9e2; --sub:#9b968c; --line:#3a3833;
+  --sold-old:#39372f; --sold-old-ink:#9b968c; --avail:#2a2924; --avail-line:#4e6a3f;
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>東方大苑　戶數去化表</h1>
+  <div class="sub">點一戶即可更新銷售狀態與客戶資料，資料會自動儲存在此瀏覽器</div>
+  <div class="stats" id="stats"></div>
+  <div class="legend">
+    <span><i class="swatch" style="background:var(--sold-old)"></i>已售（原底價表）</span>
+    <span><i class="swatch" style="background:var(--avail);border-color:var(--avail-line)"></i>待售</span>
+    <span><i class="swatch" style="background:var(--hold)"></i>已下訂</span>
+    <span><i class="swatch" style="background:var(--signed)"></i>已簽約</span>
+  </div>
+</header>
+<main>
+  <div class="wrap"><table id="grid"></table></div>
+</main>
+
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <h2 id="mTitle">12F A1</h2>
+    <div class="meta" id="mMeta">坪數 / 底價</div>
+    <label>銷售狀態</label>
+    <div class="status-row" id="statusRow">
+      <button class="status-btn" data-s="待售">待售</button>
+      <button class="status-btn" data-s="已下訂">已下訂</button>
+      <button class="status-btn" data-s="已簽約">已簽約</button>
+    </div>
+    <label>成交價格（萬）</label>
+    <input id="fPrice" type="number" placeholder="不填則顯示底價">
+    <div class="diffHint" id="diffHint"></div>
+    <label>單坪價格（萬/坪，自行填寫）</label>
+    <input id="fPpp" type="number" step="0.01" placeholder="不填則不顯示">
+    <label>客戶姓名</label>
+    <input id="fName" placeholder="王小明">
+    <label>聯絡電話</label>
+    <input id="fPhone" placeholder="09xx-xxx-xxx">
+    <label>日期</label>
+    <input id="fDate" type="date">
+    <label>備註</label>
+    <textarea id="fNote" placeholder="承辦業務、付款方式..."></textarea>
+    <div class="modal-actions">
+      <button class="btn" id="btnClear">清除紀錄</button>
+      <button class="btn primary" id="btnSave">儲存</button>
+    </div>
+    <button class="btn close" id="btnCancel">取消</button>
+  </div>
+</div>
+
+<script>
+const COLS = ["A1","A2","A3","A5","A6","A7","B1","B2","B3","B5","B6"];
+// price in 萬, area in 坪, soldOld = 原底價表已售(反灰)
+const DATA = {
+"12F":{A1:[36.35,1315,0],A2:[36.41,1258,0],A3:[25.46,931,0],A5:[36.35,1256,0],A6:[33.38,1130,0],A7:[25.46,900,1],B1:[34.71,1210,1],B2:[36.35,1267,0],B3:[25.46,940,1],B5:[36.35,1256,0],B6:[33.38,1130,0]},
+"11F":{A1:[36.38,1287,1],A2:[36.41,1258,0],A3:[25.46,922,1],A5:[36.35,1256,0],A6:[33.38,1130,0],A7:[25.46,925,1],B1:[34.71,1213,0],B2:[36.35,1267,0],B3:[25.46,930,1],B5:[36.35,1256,0],B6:[33.38,1130,0]},
+"10F":{A1:[36.35,1248,1],A2:[36.41,1230,1],A3:[25.46,910,1],A5:[36.35,1238,0],A6:[33.38,1113,0],A7:[25.46,816,1],B1:[34.71,1190,1],B2:[36.35,1253,1],B3:[25.46,903,1],B5:[36.35,1235,1],B6:[33.38,1130,1]},
+"9F":{A1:[36.35,1256,1],A2:[36.41,1232,0],A3:[25.46,866,1],A5:[36.35,1230,0],A6:[33.38,1107,0],A7:[25.46,905,1],B1:[34.71,1180,1],B2:[36.35,1230,1],B3:[25.46,912,0],B5:[36.35,1230,0],B6:[33.38,1107,0]},
+"8F":{A1:[36.35,1220,1],A2:[36.41,1190,1],A3:[25.46,890,1],A5:[36.35,1223,0],A6:[33.38,1100,0],A7:[25.46,865,1],B1:[34.71,1125,1],B2:[36.35,1179,1],B3:[25.46,865,1],B5:[36.35,1223,0],B6:[33.38,1095,1]},
+"7F":{A1:[36.35,1210,1],A2:[36.41,1185,1],A3:[25.46,855,1],A5:[36.35,1120,1],A6:[33.38,1040,1],A7:[25.46,850,1],B1:[34.71,1142,1],B2:[36.35,1160,1],B3:[25.46,888,1],B5:[36.35,1155,1],B6:[33.38,1075,1]},
+"6F":{A1:[36.35,1200,1],A2:[36.41,1178,1],A3:[25.46,871,1],A5:[36.35,1105,1],A6:[33.38,1030,1],A7:[25.46,840,1],B1:[34.71,1103,1],B2:[36.35,1149,1],B3:[25.46,885,1],B5:[36.35,1180,1],B6:[33.38,1060,1]},
+"5F":{A1:[36.35,1177,1],A2:[36.41,1173,1],A3:[25.46,838,1],A5:[36.35,1100,1],A6:[33.38,1010,1],A7:[25.46,830,1],B1:[34.71,1086,1],B2:[36.35,1138,1],B3:[25.46,842,1],B5:[36.35,1120,1],B6:[33.38,1039,1]},
+"4F":{A1:[36.35,1160,1],A2:[36.41,1162,1],A3:[25.46,830,1],A5:[36.35,1080,1],A6:[33.38,1070,1],A7:[25.46,820,1],B1:[34.71,1070,1],B2:[36.35,1172,0],B3:[25.46,835,1],B5:[36.35,1161,0],B6:[33.38,1038,1]},
+"3F":{A1:[36.35,1249,0],A2:[36.41,1185,0],A3:[25.46,872,0],A5:[36.35,1182,1],A6:[33.38,1000,1],A7:[25.46,860,0],B1:[34.71,1130,1],B2:[36.35,1183,0],B3:[25.46,872,0],B5:[36.35,1198,1],B6:[33.38,1065,1]},
+"2F":{A2:[36.41,1178,0],A3:[25.46,908,1],A5:[36.35,1209,0],A6:[33.36,1142,0],B1:[34.71,1135,1],B2:[36.35,1176,0],B3:[25.46,918,1],B5:[36.35,1198,0],B6:[33.38,1138,1]}
+};
+const FLOORS = Object.keys(DATA); // 12F -> 2F
+const COL_AREA = {A1:36.35,A2:36.41,A3:25.46,A5:36.35,A6:33.38,A7:25.46,B1:34.71,B2:36.35,B3:25.46,B5:36.35,B6:33.38};
+const SOLD_OLD_TOTAL = 84268; // 原底價表「已售成交總額」（萬），來自底價表彙總列
+
+const STORE_KEY = "dongfang_dayuan_sales_v1";
+let records = {};
+try{ records = JSON.parse(localStorage.getItem(STORE_KEY) || "{}"); }catch(e){ records = {}; }
+Object.values(records).forEach(r=>{ if(r && r.status==="已下定") r.status="已下訂"; });
+function save(){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(records)); }catch(e){} }
+
+function key(f,c){ return f+"-"+c; }
+
+function buildGrid(){
+  const table = document.getElementById("grid");
+  let html = "<thead><tr><th class='floor-col'>樓層</th>";
+  COLS.forEach((c,i)=>{ html += `<th>${c}<div class="th-area">${COL_AREA[c]}坪</div></th>`; if(i===5) html += "<th class='sep'></th>"; });
+  html += "</tr></thead><tbody>";
+  FLOORS.forEach(f=>{
+    html += `<tr><td class="floor-label">${f}</td>`;
+    COLS.forEach((c,i)=>{
+      const u = DATA[f][c];
+      if(!u){ html += `<td class="cell na">－</td>`; }
+      else{
+        const [area, price, soldOld] = u;
+        const k = key(f,c);
+        const rec = records[k];
+        if(soldOld){
+          const ppp = (price/area).toFixed(2);
+          html += `<td class="cell sold-old" data-k="${k}"><div class="unit">${c}</div><div class="price">已售</div><div class="sub2">${ppp}萬/坪</div></td>`;
+        }else{
+          const status = (rec && rec.status) || "待售";
+          const nameHtml = rec && rec.name ? `<div class="name">${escapeHtml(rec.name)}</div>` : "";
+          const shownPrice = (rec && rec.price) ? Number(rec.price) : price;
+          const ppp = (rec && rec.ppp) ? Number(rec.ppp).toFixed(2) : (shownPrice/area).toFixed(2);
+          const priceCls = (rec && rec.price) ? ' class="price deal"' : ' class="price"';
+          let badge = "";
+          if(rec && rec.price){
+            const diff = Number(rec.price) - price;
+            if(diff!==0) badge = `<div class="diff-badge ${diff>0?'up':'down'}">${diff>0?'+':''}${diff}</div>`;
+          }
+          html += `<td class="cell ${status}" data-k="${k}" data-f="${f}" data-c="${c}"><div class="unit">${c}</div><div${priceCls}>${shownPrice}萬</div><div class="sub2">${ppp}萬/坪</div>${nameHtml}${badge}</td>`;
+        }
+      }
+      if(i===5) html += "<td class='sep'></td>";
+    });
+    html += "</tr>";
+  });
+  html += "</tbody>";
+  table.innerHTML = html;
+  table.querySelectorAll("td.cell:not(.na):not(.sold-old)").forEach(td=>{
+    td.addEventListener("click", ()=> openModal(td.dataset.f, td.dataset.c));
+  });
+}
+
+function fmtWan(n){
+  n = Math.round(n);
+  if(n>=10000){ return (n/10000).toFixed(2)+"億"; }
+  return n.toLocaleString("zh-Hant")+"萬";
+}
+function fmtWanPlain(n){
+  return Math.round(n).toLocaleString("zh-Hant")+"萬";
+}
+
+function updateStats(){
+  let counts = {"待售":0,"已下訂":0,"已簽約":0};
+  let total = 0, basePriceTotal = 0, effectiveTotal = 0;
+  let dealCount = 0, dealAmount = 0, diffSum = 0, diffUnits = 0, contractBaseSum = 0;
+  FLOORS.forEach(f=> COLS.forEach(c=>{
+    const u = DATA[f][c]; if(!u || u[2]) return;
+    const [area, price] = u;
+    total++;
+    basePriceTotal += price;
+    const rec = records[key(f,c)];
+    const s = (rec && rec.status) || "待售";
+    counts[s] = (counts[s]||0)+1;
+    const amount = (rec && rec.price) ? Number(rec.price) : price;
+    effectiveTotal += amount;
+    if(s !== "待售"){ dealCount++; dealAmount += amount; contractBaseSum += price; }
+    if(rec && rec.price){ diffSum += Number(rec.price)-price; diffUnits++; }
+  }));
+  const UNIT_DENOM = 39, AMOUNT_DENOM_WAN = 45225, TOTAL_SALES_WAN = 45225;
+  const unitRate = (Math.floor(dealCount/UNIT_DENOM*10000)/100).toFixed(2);
+  const amountRate = (Math.floor(dealAmount/AMOUNT_DENOM_WAN*10000)/100).toFixed(2);
+  const contractRate = (Math.floor(contractBaseSum/TOTAL_SALES_WAN*10000)/100).toFixed(2);
+  document.getElementById("stats").innerHTML = `
+    <div class="stat-row">
+      <div class="stat"><b>${total}</b>可售總戶數</div>
+      <div class="stat"><b>${counts["待售"]}</b>待售</div>
+      <div class="pair">
+        <div class="stat"><b>${counts["已下訂"]}</b>已下訂</div>
+        <div class="stat"><b>${counts["已簽約"]}</b>已簽約</div>
+      </div>
+    </div>
+    <div class="stat-row">
+      <div class="stat"><b>${fmtWanPlain(basePriceTotal)}</b>可售底價總銷</div>
+      <div class="stat"><b>${fmtWanPlain(effectiveTotal)}</b>未售部分目前總額<span class="stat-note">含已填成交價</span></div>
+      <div class="stat"><b>${diffUnits? (diffSum>0?'+':'')+fmtWan(diffSum) : '—'}</b>累計超底/破底<span class="stat-note">${diffUnits}戶有填成交價</span></div>
+    </div>
+    <div class="stat-row">
+      <div class="stat"><b>${unitRate}%</b>戶數去化率<span class="stat-note">${dealCount}÷${UNIT_DENOM}</span></div>
+      <div class="stat"><b>${amountRate}%</b>金額去化率<span class="stat-note">${fmtWan(dealAmount)}÷${AMOUNT_DENOM_WAN.toLocaleString('zh-Hant')}萬</span></div>
+      <div class="stat"><b>${contractRate}%</b>合約底銷售率<span class="stat-note">${fmtWanPlain(contractBaseSum)}÷${TOTAL_SALES_WAN.toLocaleString('zh-Hant')}萬</span></div>
+    </div>
+  `;
+}
+
+function escapeHtml(s){ return s.replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m])); }
+
+let current = null;
+function renderDiffHint(){
+  const el = document.getElementById("diffHint");
+  const v = document.getElementById("fPrice").value.trim();
+  if(!current || v===""){ el.textContent=""; el.className="diffHint"; return; }
+  const diff = Number(v) - current.base;
+  if(diff===0){ el.textContent="與底價相同"; el.className="diffHint"; return; }
+  el.textContent = diff>0 ? `超價 +${diff}萬` : `破底 ${diff}萬`;
+  el.className = "diffHint " + (diff>0 ? "up" : "down");
+}
+document.getElementById("fPrice").addEventListener("input", renderDiffHint);
+function openModal(f,c){
+  const [area, price] = DATA[f][c];
+  current = {f,c,k:key(f,c),base:price,area:area};
+  document.getElementById("mTitle").textContent = `${f} ${c}`;
+  document.getElementById("mMeta").textContent = `${area} 坪　底價 ${price} 萬`;
+  const rec = records[current.k] || {};
+  document.getElementById("fPrice").value = rec.price || "";
+  document.getElementById("fPpp").value = rec.ppp || "";
+  document.getElementById("fName").value = rec.name || "";
+  document.getElementById("fPhone").value = rec.phone || "";
+  document.getElementById("fDate").value = rec.date || "";
+  document.getElementById("fNote").value = rec.note || "";
+  setActiveStatus(rec.status || "待售");
+  renderDiffHint();
+  document.getElementById("modalBg").classList.add("open");
+}
+function setActiveStatus(s){
+  document.querySelectorAll(".status-btn").forEach(b=> b.classList.toggle("active", b.dataset.s===s));
+  document.getElementById("statusRow").dataset.value = s;
+}
+document.getElementById("statusRow").addEventListener("click", e=>{
+  const btn = e.target.closest(".status-btn"); if(!btn) return;
+  setActiveStatus(btn.dataset.s);
+});
+function closeModal(){ document.getElementById("modalBg").classList.remove("open"); current=null; }
+document.getElementById("btnCancel").addEventListener("click", closeModal);
+document.getElementById("modalBg").addEventListener("click", e=>{ if(e.target.id==="modalBg") closeModal(); });
+
+document.getElementById("btnSave").addEventListener("click", ()=>{
+  if(!current) return;
+  records[current.k] = {
+    status: document.getElementById("statusRow").dataset.value || "待售",
+    price: document.getElementById("fPrice").value.trim(),
+    ppp: document.getElementById("fPpp").value.trim(),
+    name: document.getElementById("fName").value.trim(),
+    phone: document.getElementById("fPhone").value.trim(),
+    date: document.getElementById("fDate").value,
+    note: document.getElementById("fNote").value.trim()
+  };
+  save(); closeModal(); buildGrid(); updateStats();
+});
+document.getElementById("btnClear").addEventListener("click", ()=>{
+  if(!current) return;
+  delete records[current.k];
+  save(); closeModal(); buildGrid(); updateStats();
+});
+
+buildGrid();
+updateStats();
+</script>
+</body>
+</html>
